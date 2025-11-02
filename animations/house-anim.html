@@ -1,0 +1,95 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Door Animation via Pivot (door_2002)</title>
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+  </head>
+  <body>
+    <a-scene background="color: #111">
+      <a-assets>
+        <a-asset-item id="houseModel" src="house2.glb"></a-asset-item>
+      </a-assets>
+
+      <!-- Камера -->
+      <a-entity id="player" position="0 1.6 5" movement-controls>
+        <a-entity camera look-controls wasd-controls></a-entity>
+      </a-entity>
+
+      <!-- Дом -->
+      <a-entity id="house" gltf-model="#houseModel" door-anim></a-entity>
+
+      <a-sky color="#222"></a-sky>
+
+      <script>
+        AFRAME.registerComponent("door-anim", {
+          init: function () {
+            this.door = null;
+            this.doorPivot = null;
+            this.isOpen = false;
+
+            const el = this.el;
+
+            el.addEventListener("model-loaded", () => {
+              const model = el.getObject3D("mesh");
+              if (!model) return;
+
+              model.traverse((node) => {
+                if (node.isMesh && node.name === "door_2002") {
+                  console.log("Найдена дверь:", node.name);
+
+                  // Создаем pivot (точку вращения)
+                  const pivot = new THREE.Object3D();
+
+                  // Размещаем pivot в позиции двери
+                  pivot.position.copy(node.position);
+
+                  // Перемещаем дверь внутрь pivot
+                  node.position.set(0, 0, 0);
+                  pivot.add(node);
+
+                  // Добавляем pivot в модель
+                  model.add(pivot);
+
+                  this.doorPivot = pivot;
+                  this.door = node;
+
+                  console.log("Pivot создан, дверь готова к анимации");
+                }
+              });
+            });
+
+            window.addEventListener("keydown", (e) => {
+              const key = e.key.toLowerCase();
+              if (key === "e" || key === "у") {
+                this.toggleDoor();
+              }
+            });
+          },
+
+          toggleDoor: function () {
+            if (!this.doorPivot) return;
+
+            const pivot = this.doorPivot;
+            const from = { y: pivot.rotation.y };
+            const to = { y: this.isOpen ? 0 : Math.PI / 2 };
+            this.isOpen = !this.isOpen;
+
+            const start = performance.now();
+            const duration = 800;
+
+            const animate = (time) => {
+              const t = Math.min((time - start) / duration, 1);
+              pivot.rotation.y = from.y + (to.y - from.y) * t;
+              if (t < 1) requestAnimationFrame(animate);
+            };
+
+            requestAnimationFrame(animate);
+          },
+        });
+      </script>
+    </a-scene>
+  </body>
+</html>
+
+
+

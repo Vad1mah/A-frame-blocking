@@ -3,19 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lost in the Fog — Сцена 1 (блокинг)</title>
+    <title>Lost in the Fog — VR Horror Experience</title>
     <script src="https://cdn.jsdelivr.net/npm/aframe@1.5.0/dist/aframe-master.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
+    <script src="reset-on-collision.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #0B0B0D; overflow: hidden; }
+        
+        /* HTML overlay для текста записки */
+        #note-overlay {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            background: rgba(26, 20, 16, 0.95);
+            border: 2px solid rgba(212, 197, 169, 0.3);
+            border-radius: 8px;
+            padding: 30px;
+            z-index: 9999;
+            display: none;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            color: #d4c5a9;
+            pointer-events: auto;
+        }
+        
+        #note-overlay.show {
+            display: block;
+        }
+        
+        #note-text {
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            color: #d4c5a9;
+        }
+        
+        #note-hint {
+            font-size: 14px;
+            color: #8a8a8a;
+        }
     </style>
 </head>
 <body>
+    <!-- HTML overlay для текста записки -->
+    <div id="note-overlay">
+        <div id="note-text">V kolodce chto-to est</div>
+        <div id="note-hint">[E] - zakryt</div>
+    </div>
     <a-scene
         renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true; shadowMapType: pcfsoft"
         shadow="type: pcfsoft"
-        fog="type: exponential; color: #2F3E46; density: 0.12"
-        vr-mode-ui="enabled: true">
+        fog="type: exponential; color: #0f1714; density: 0.12"
+        vr-mode-ui="enabled: true"
+        keyboard-suppress>
+
+        <a-assets>
+            <a-asset-item id="runeTree" src="Objects/main_tree.glb"></a-asset-item>
+            <a-asset-item id="flashlightModel" src="objects/flashlight.glb"></a-asset-item>
+            <audio id="bgmusic" src="sounds/bg_music.mp3" preload="auto" crossorigin="anonymous"></audio>
+            <a-asset-item id="rockModel" src="objects/rock.glb"></a-asset-item>
+            <a-asset-item id="tentModel" src="objects/tent.glb"></a-asset-item>
+            <a-asset-item id="wellModel" src="objects/the_village_well1.glb"></a-asset-item>
+            <a-asset-item id="noteModel" src="objects/notes.glb"></a-asset-item>
+            <a-asset-item id="houseModel" src="objects/house.glb"></a-asset-item>
+            <a-asset-item id="audiorecorderModel" src="objects/audiorecorder.glb"></a-asset-item>
+            <a-asset-item id="bookModel" src="objects/book.glb"></a-asset-item>
+            <a-asset-item id="chairModel" src="objects/chair.glb"></a-asset-item>
+            <a-asset-item id="tableModel" src="objects/table.glb"></a-asset-item>
+            <a-asset-item id="wardrobeModel" src="objects/wardrobe.glb"></a-asset-item>
+            <a-asset-item id="woodpileModel" src="objects/woodpile.glb"></a-asset-item>
+            <img id="ghostImage" src="animations/ghost.jpg" crossorigin="anonymous" />
+            <audio id="scream" src="sounds/scream.mp3" preload="auto" crossorigin="anonymous"></audio>
+            <a-asset-item id="keyModel" src="objects/key.glb"></a-asset-item>
+            <audio id="crows" src="sounds/crows cry.mp3" preload="auto" crossorigin="anonymous"></audio>
+            <audio id="bgm" src="sounds/Taos Hum.wav" preload="auto" crossorigin="anonymous"></audio>
+            <audio id="recorderVoice" src="sounds/recorderVoice.mp3" preload="auto" crossorigin="anonymous"></audio>
+        </a-assets>
 
         <!-- Небо (глубокая ночь) -->
         <a-sky color="#1B263B"></a-sky>
@@ -23,12 +89,17 @@
         <a-entity id="moon" position="-60 90 -140">
             <a-sphere radius="8" color="#dfe8ff" emissive="#dfe8ff" emissive-intensity="0.85" material="shader: flat; transparent: true; opacity: 0.95; fog: false"></a-sphere>
             <a-sphere radius="12" color="#dfe8ff" material="shader: flat; transparent: true; opacity: 0.08; fog: false"></a-sphere>
-            <a-entity id="moon-light" light="type: directional; color: #aebcff; intensity: 0.42; castShadow: true; shadowCameraTop: 130; shadowCameraBottom: -130; shadowCameraLeft: -130; shadowCameraRight: 130; shadowCameraFar: 400; shadowMapWidth: 2048; shadowMapHeight: 2048; shadowBias: -0.0003; target: #shadow-target" position="-60 90 -140"></a-entity>
+            <a-entity id="moon-light" light="type: directional; color: #aebcff; intensity: 0.20; castShadow: true; shadowCameraTop: 80; shadowCameraBottom: -80; shadowCameraLeft: -80; shadowCameraRight: 80; shadowCameraFar: 200; shadowMapWidth: 1024; shadowMapHeight: 1024; shadowBias: -0.0003; target: #shadow-target" position="-60 90 -140"></a-entity>
         </a-entity>
         <a-entity id="shadow-target" position="0 0 -30"></a-entity>
 
-        <!-- Свет: приглушённый общий; лунный directional даёт основные тени -->
-        <a-entity light="type: ambient; color: #444; intensity: 0.18"></a-entity>
+        <!-- Свет: почти тьма; фонарь игрока — основной источник -->
+        <a-entity id="ambient-light" light="type: ambient; color: #2A3F2D; intensity: 0.10"></a-entity>
+
+        <!-- Фоновая музыка: общий фоновый трек запускается сразу (после первого взаимодействия, из-за политик браузера) -->
+        <a-entity id="bgmusic-sound" sound="src: #bgmusic; autoplay: true; loop: true; volume: 0.18; positional: false" bgm-launch></a-entity>
+        <!-- Атмосферный гул Taos Hum — старт только после подбора фонаря -->
+        <a-entity id="bgm-sound" sound="src: #bgm; autoplay: false; loop: true; volume: 0.15; positional: false"></a-entity>
 
         <!-- Земля: большая область для перемещения -->
         <a-plane position="0 0 0" rotation="-90 0 0" width="200" height="200" color="#0B0B0D" shadow="receive: true"></a-plane>
@@ -36,67 +107,136 @@
         <!-- Простой ориентир-дорожка -->
         <a-plane position="0 0.01 -10" rotation="-90 0 0" width="10" height="80" color="#1B263B" opacity="0.6"></a-plane>
 
+        <!-- Ответвление дорожки от основной к древнему дереву с рунами (от края главной тропы) -->
+        <a-plane position="-13 0.012 -26" rotation="-90 -30 0" width="20" height="3.2" color="#2F3E46" opacity="0.55"></a-plane>
+        <!-- Прямая дорога от дерева с рунами к дому -->
+        <a-plane position="-27 0.012 -41" rotation="-90 -25 0" width="5" height="35" color="#2F3E46" opacity="0.55"></a-plane>
+        <!-- Ответвление дороги к лагерю (справа от спавна) -->
+        <a-plane position="20 0.011 24" rotation="-90 75 0" width="5" height="30" color="#2F3E46" opacity="0.55"></a-plane>
+
+        
+
+        <!-- Невидимый триггер у крыльца: гасит окна один раз при подходе -->
+        <a-entity id="porch-trigger" position="0 1 -20" proximity-once="radius: 5; targetLeft: #window-left; targetRight: #window-right"></a-entity>
+
         <!-- Крупная хижина (примитивы, минимальная детализация) -->
-        <a-box position="0 4 -30" width="14" height="8" depth="10" color="#6B7280" shadow="cast: true; receive: true"></a-box>
+        <a-box position="0 4 -30" width="14" height="8" depth="10" color="#6B7280" shadow="cast: true; receive: true" class="collision"></a-box>
         <!-- Крыша: конус, поднят выше, чтобы не пересекаться со стенами -->
         <a-cone position="0 11 -30" radius-bottom="8" radius-top="0.2" height="5.5" color="#1C2A1F" shadow="cast: true"></a-cone>
 		<!-- Дверь и окна на фасаде (передняя грань к игроку, вынесены вперёд) -->
 		<a-box position="0 2 -24.95" width="2.4" height="3.8" depth="0.3" color="#0B0B0D" shadow="cast: true"></a-box>
-		<a-sphere position="1.0 2 -24.9" radius="0.09" color="#6B7280"></a-sphere>
-		<a-box position="-4.8 4 -24.97" width="2.2" height="1.6" depth="0.06" color="#1B263B" emissive="#1B263B" emissive-intensity="0.6"></a-box>
-		<a-box position="4.8 4 -24.97" width="2.2" height="1.6" depth="0.06" color="#1B263B" emissive="#1B263B" emissive-intensity="0.6"></a-box>
+		<a-sphere position="1.0 2 -24.75" radius="0.09" color="#6B7280"></a-sphere>
+		<a-box id="window-left" position="-4.8 4 -24.97" width="2.2" height="1.6" depth="0.06"
+			material="color: #1B263B; emissive: #B9A13A; emissiveIntensity: 1.4"
+			animation__douseInt="property: material.emissiveIntensity; from: 1.4; to: 0.6; dur: 700; easing: easeInOutSine; startEvents: douse; autoplay: false"
+			animation__douseCol="property: material.emissive; from: #B9A13A; to: #1B263B; dur: 900; easing: easeInOutSine; startEvents: douse; autoplay: false"></a-box>
+		<a-box id="window-right" position="4.8 4 -24.97" width="2.2" height="1.6" depth="0.06"
+			material="color: #1B263B; emissive: #B9A13A; emissiveIntensity: 1.4"
+			animation__douseInt="property: material.emissiveIntensity; from: 1.4; to: 0.6; dur: 700; easing: easeInOutSine; startEvents: douse; autoplay: false"
+			animation__douseCol="property: material.emissive; from: #B9A13A; to: #1B263B; dur: 900; easing: easeInOutSine; startEvents: douse; autoplay: false"></a-box>
 		<!-- Примитивный фонарь у двери: крепёж + светящийся шар + источник света (передняя грань) -->
-		<a-entity id="door-lamp" position="1.2 4.6 -24.9" flicker-light="min: 0.5; max: 2.4; speed: 2.0">
+		<a-entity id="door-lamp" position="1.2 4.4 -24.9" flicker-light="min: 0.5; max: 2.4; speed: 2.0" animation__swing="property: rotation; dir: alternate; dur: 2400; easing: easeInOutSine; from: 0 0 -8; to: 0 0 8; loop: true">
 			<!-- Кронштейн (брусок вдоль Z) -->
 			<a-box position="0 0 0.11" width="0.06" height="0.06" depth="0.22" color="#1a1a1a"></a-box>
 			<!-- Корпус лампы -->
-			<a-cone position="0 0.10 0.28" radius-bottom="0.14" radius-top="0.05" height="0.22" color="#202020" shadow="cast: true"></a-cone>
+			<a-cone position="0 -0.12 0.28" radius-bottom="0.14" radius-top="0.05" height="0.22" color="#202020" shadow="cast: true"></a-cone>
 			<!-- Стекло -->
-			<a-cylinder position="0 -0.02 0.28" radius="0.11" height="0.18" material="color: #B9A13A; transparent: true; opacity: 0.18"></a-cylinder>
+			<a-cylinder position="0 -0.24 0.28" radius="0.11" height="0.18" material="color: #B9A13A; transparent: true; opacity: 0.18"></a-cylinder>
 			<!-- Лампочка -->
-			<a-sphere class="lamp-bulb" position="0 -0.02 0.28" radius="0.07" color="#B9A13A" emissive="#B9A13A" emissive-intensity="0.8"></a-sphere>
-			<!-- Источник света -->
-			<a-entity class="lamp-light" position="0 -0.02 0.28" light="type: point; color: #B9A13A; intensity: 1.5; distance: 10; decay: 2; castShadow: true"></a-entity>
+			<a-sphere class="lamp-bulb" position="0 -0.24 0.28" radius="0.07" color="#B9A13A" emissive="#B9A13A" emissive-intensity="0.8"></a-sphere>
+            <!-- Источник света -->
+			<a-entity class="lamp-light" position="0 -0.24 0.28"
+                      light="type: point; color: #B9A13A; intensity: 1.5; distance: 10; decay: 2; castShadow: true"
+                      animation__jitter="property: light.intensity; dir: alternate; from: 0.8; to: 2.2; dur: 900; easing: easeInOutSine; loop: true"></a-entity>
 		</a-entity>
 
-        <!-- Большие деревья по периметру (простые ствол + крона) -->
-        <!-- 1 -->
-        <a-cylinder position="-30 9 -40" radius="0.8" height="18" color="#2d2622" shadow="cast: true"></a-cylinder>
-        <a-sphere position="-30 18.5 -40" radius="5.5" color="#1C2A1F" shadow="cast: true"></a-sphere>
-        <!-- 2 -->
-        <a-cylinder position="-10 9 -35" radius="0.9" height="18" color="#2d2622" shadow="cast: true"></a-cylinder>
-        <a-sphere position="-10 18.5 -35" radius="6" color="#1C2A1F" shadow="cast: true"></a-sphere>
-        <!-- 3 -->
-        <a-cylinder position="15 10 -38" radius="0.9" height="20" color="#2d2622" shadow="cast: true"></a-cylinder>
-        <a-sphere position="15 20 -38" radius="6.2" color="#1C2A1F" shadow="cast: true"></a-sphere>
-        <!-- 4 -->
-        <a-cylinder position="35 10 -25" radius="0.8" height="20" color="#2d2622" shadow="cast: true"></a-cylinder>
-        <a-sphere position="35 20 -25" radius="5.8" color="#1C2A1F" shadow="cast: true"></a-sphere>
-        <!-- 5 -->
-        <a-cylinder position="45 9 -10" radius="0.7" height="18" color="#2d2622" shadow="cast: true"></a-cylinder>
-        <a-sphere position="45 18.5 -10" radius="5.2" color="#1C2A1F" shadow="cast: true"></a-sphere>
-        <!-- 6 -->
-        <a-cylinder position="-45 9 -10" radius="0.7" height="18" color="#2d2622" shadow="cast: true"></a-cylinder>
-        <a-sphere position="-45 18.5 -10" radius="5.2" color="#1C2A1F" shadow="cast: true"></a-sphere>
-        <!-- 7 -->
-        <a-cylinder position="-25 9 30" radius="0.8" height="18" color="#2d2622" shadow="cast: true"></a-cylinder>
-        <a-sphere position="-25 18.5 30" radius="5.5" color="#1C2A1F" shadow="cast: true"></a-sphere>
-        <!-- 8 -->
-        <a-cylinder position="0 10 40" radius="0.9" height="20" color="#2d2622" shadow="cast: true"></a-cylinder>
-        <a-sphere position="0 20 40" radius="6" color="#1C2A1F" shadow="cast: true"></a-sphere>
-        <!-- 9 -->
-        <a-cylinder position="30 10 35" radius="0.8" height="20" color="#2d2622" shadow="cast: true"></a-cylinder>
-        <a-sphere position="30 20 35" radius="5.8" color="#1C2A1F" shadow="cast: true"></a-sphere>
-        <!-- 10 -->
-        <a-cylinder position="-40 10 5" radius="0.9" height="20" color="#2d2622" shadow="cast: true"></a-cylinder>
-        <a-sphere position="-40 20 5" radius="6.2" color="#1C2A1F" shadow="cast: true"></a-sphere>
+		<!-- Пень с фонариком (подбор) справа от двери, перед домом -->
+        <a-entity id="stump" position="8 0 -23">
+            <a-cylinder class="collision" position="0 0.3 0" radius="0.45" height="0.6" color="#3a2a1a" shadow="cast: true; receive: true"></a-cylinder>
+            <a-entity id="flashlight-ground" position="0 0.72 0" rotation="0 0 90" flashlight-pickup="attach: #cam; radius: 3.5">
+                <a-entity gltf-model="#flashlightModel" scale="0.015 0.015 0.015"></a-entity>
+            </a-entity>
+		</a-entity>
 
-		<!-- Равномерное окружение деревьев/кустов/камней добавляется ниже скриптом -->
-		<a-entity id="world-decor" scatter-forest="area: 180; trees: 560; bushes: 400; rocks: 220; excludeRadius: 18; walkwayX: 5; walkwayZStart: -50; walkwayZEnd: 30; minTreeSpacing: 7; minBushSpacing: 2.4; minRockSpacing: 2.0"></a-entity>
 
-        <!-- Игрок/камера: простое управление взглядом и WASD -->
-        <a-entity id="player" position="0 1.6 28">
-            <a-camera look-controls="pointerLockEnabled: true" wasd-controls="acceleration: 30">
+        <!-- Деревья вручную удалены — весь лес генерируется автоматически ниже -->
+        <!-- Древнее дерево с рунами (glb с анимируемыми эмиссивными символами) -->
+        <a-entity id="ancient-tree" gltf-model="#runeTree" position="-20 0 -27" rotation="0 15 0" scale="1 1 1" rune-glow="distance: 5.5; aimDot: 0.992" crow-controller ground-align="offset: 0.05"></a-entity>
+
+        <!-- ДОМ С МЕБЕЛЬЮ (за деревом с рунами, увеличен в 3 раза) -->
+        <a-entity id="house-area" position="-35 0 -55">
+            <!-- Дом с анимацией двери (увеличен в 3 раза) -->
+            <a-entity id="house" gltf-model="#houseModel" scale="3 3 3" door-anim ground-align>
+            </a-entity>
+            
+            <!-- Простые коллизии стен дома -->
+            <a-box class="collision" position="0 3 6" width="12" height="6" depth="0.3" visible="false"></a-box>
+            <a-box class="collision" position="-6 3 0" width="0.3" height="6" depth="12" visible="false"></a-box>
+            <a-box class="collision" position="6 3 0" width="0.3" height="6" depth="12" visible="false"></a-box>
+            <a-box class="collision" position="-3 3 -6" width="5" height="6" depth="0.3" visible="false"></a-box>
+            <a-box class="collision" position="3 3 -6" width="5" height="6" depth="0.3" visible="false"></a-box>
+
+            <!-- Мебель внутри дома (расставлена относительно дома, увеличена) -->
+            <!-- КОМНАТА 1: Стол с диктофоном и стульями напротив друг друга -->
+            <a-entity position="-6 0 2">
+                <!-- Стол в центре (повернут на 90 градусов, опущен чуть ниже) -->
+                <a-entity gltf-model="#tableModel" position="0 2.0 0" rotation="0 90 0" scale="2 2 2"></a-entity>
+                <!-- Диктофон на столе (опущен чуть ниже) -->
+                <a-entity id="recorder" gltf-model="#audiorecorderModel" position="0 2.4 0" rotation="0 45 0" scale="2.5 2.5 2.5" class="collision" recorder-interaction></a-entity>
+                
+                <!-- Стулья напротив друг друга (опущены чуть ниже) -->
+                <a-entity gltf-model="#chairModel" position="2.5 1.3 0" rotation="0 90 0" scale="2 2 2"></a-entity>
+            </a-entity>
+
+            <!-- Поленница у дома снаружи -->
+            <a-entity gltf-model="#woodpileModel" position="15 0 10" rotation="0 -30 0" scale="5 5 5" ground-align></a-entity>
+        </a-entity>
+
+        <!-- Равномерное окружение деревьев/кустов/камней добавляется ниже скриптом (оптимизировано) -->
+        <a-entity id="world-decor" scatter-forest="area: 160; trees: 180; bushes: 120; rocks: 60; excludeRadius: 18; walkwayX: 5; walkwayZStart: -50; walkwayZEnd: 30; minTreeSpacing: 9; minBushSpacing: 3.5; minRockSpacing: 3.0"></a-entity>
+
+        <!-- ЛОКАЦИЯ 2: Лагерь с палатками и костром + колодец со скримером (справа от спавна, на безопасном расстоянии) -->
+        <a-entity id="scene-camp">
+            <!-- Костёр: простые брёвна и тёплый мерцающий свет -->
+            <a-entity id="campfire" position="35 0 20">
+                <a-cylinder position="0 0.15 0" radius="0.7" height="0.3" color="#2a221c" shadow="receive: true"></a-cylinder>
+                <a-cone position="0 0.35 0" radius-bottom="0.35" radius-top="0.0" height="0.6" color="#4c2a12"></a-cone>
+                <a-entity class="campfire-light" position="0 0.6 0" light="type: point; color: #ff7e2d; intensity: 2.6; distance: 16; decay: 2; castShadow: true" animation__jitter="property: light.intensity; dir: alternate; from: 2.1; to: 3.4; dur: 700; easing: easeInOutSine; loop: true"></a-entity>
+                <!-- Записка рядом с костром (лежит горизонтально) -->
+                <a-entity id="note-ground" position="1.8 0.02 0" gltf-model="#noteModel" scale="3 3 3" rotation="-90 45 0" note-pickup="radius: 2.5"></a-entity>
+            </a-entity>
+
+            <!-- Палатки вокруг костра с большими зазорами для прохода -->
+            <a-entity position="22 0 20">
+                <a-entity gltf-model="#tentModel" scale="4 4 4" rotation="0 90 0" ground-align></a-entity>
+                <a-box class="collision" position="0 2 0" width="8" height="4" depth="10" visible="false"></a-box>
+            </a-entity>
+            <a-entity position="48 0 20">
+                <a-entity gltf-model="#tentModel" scale="4 4 4" rotation="0 -90 0" ground-align></a-entity>
+                <a-box class="collision" position="0 2 0" width="8" height="4" depth="10" visible="false"></a-box>
+            </a-entity>
+            <a-entity position="35 0 8">
+                <a-entity gltf-model="#tentModel" scale="4.2 4.2 4.2" rotation="0 0 0" ground-align></a-entity>
+                <a-box class="collision" position="0 2 0" width="8.5" height="4.2" depth="10.5" visible="false"></a-box>
+            </a-entity>
+            <a-entity position="35 0 32">
+                <a-entity gltf-model="#tentModel" scale="4.2 4.2 4.2" rotation="0 180 0" ground-align></a-entity>
+                <a-box class="collision" position="0 2 0" width="8.5" height="4.2" depth="10.5" visible="false"></a-box>
+            </a-entity>
+
+            <!-- Колодец со скримером (дальше от лагеря, увеличен в 10 раз) -->
+            <a-entity id="well" position="50 0 10" rotation="0 20 0" ground-align well-scare>
+                <a-entity gltf-model="#wellModel" scale="6 6 6"></a-entity>
+                <a-cylinder class="collision" position="0 1.5 0" radius="1.5" height="3" color="#000" visible="false"></a-cylinder>
+            </a-entity>
+        </a-entity>
+
+
+
+
+        <!-- Игрок/камера: простое управление взглядом и WASD + вертикальное перемещение -->
+        <a-entity id="player" position="0 1.6 28" vertical-movement crouch="stand: 1.6; crouch: 0.6; speed: 10; accelStand: 30; accelCrouch: 15">
+            <a-camera id="cam" look-controls="pointerLockEnabled: true" wasd-controls="acceleration: 30" reset-on-collision="with: .collision; colliderSize: 0.6; smoothRecovery: true; pushBackDistance: 0.02">
                 <a-cursor color="#ffffff" opacity="0.6"></a-cursor>
             </a-camera>
         </a-entity>
@@ -128,41 +268,76 @@
 					const houseCenter = { x: 0, z: -30 };
 
 					function randomInRange(min, max) { return Math.random() * (max - min) + min; }
-					function isExcluded(x, z) {
+                    function isExcluded(x, z) {
 						const dx = x - houseCenter.x;
 						const dz = z - houseCenter.z;
 						const dist = Math.sqrt(dx * dx + dz * dz);
 						if (dist < config.excludeRadius) return true;
 						if (x > -config.walkwayX && x < config.walkwayX && z > config.walkwayZStart && z < config.walkwayZEnd) return true;
+                        // исключить область вокруг древнего дерева с рунами
+                        const anc = document.getElementById('ancient-tree');
+                        const ax = anc ? anc.object3D.position.x : -20;
+                        const az = anc ? anc.object3D.position.z : -27;
+                        const dxA = x - ax, dzA = z - az;
+                        const dA = Math.sqrt(dxA*dxA + dzA*dzA);
+                        if (dA < 8.0) return true;
+                        // исключить область лагеря (костер на 35, 0, 20)
+                        const campX = 35, campZ = 20;
+                        const dxC = x - campX, dzC = z - campZ;
+                        const dC = Math.sqrt(dxC*dxC + dzC*dzC);
+                        if (dC < 25.0) return true;
+                        // исключить область дома (на -35, 0, -55, увеличен в 3 раза)
+                        const houseX = -35, houseZ = -55;
+                        const dxH = x - houseX, dzH = z - houseZ;
+                        const dH = Math.sqrt(dxH*dxH + dzH*dzH);
+                        if (dH < 25.0) return true;
 						return false;
 					}
 
-					function createTree(positionX, positionZ) {
+                    function createTree(positionX, positionZ) {
 						const trunkHeight = randomInRange(11, 19);
-						const trunk = document.createElement('a-cylinder');
-						trunk.setAttribute('position', `${positionX} ${trunkHeight / 2} ${positionZ}`);
+						const group = document.createElement('a-entity');
+						group.setAttribute('position', `${positionX} 0 ${positionZ}`);
+						group.setAttribute('rotation', `0 ${Math.floor(randomInRange(0, 360))} 0`);
+                        // коллизия будет на стволе, не на группе
+						// покачивание для большинства деревьев (70%)
+						if (Math.random() > 0.3) {
+							const ampTrunk = randomInRange(4, 7);
+							const speedTrunk = randomInRange(0.25, 0.35);
+							group.setAttribute('tree-sway', `amp: ${ampTrunk}; speed: ${speedTrunk}`);
+						}
+
+                        const trunk = document.createElement('a-cylinder');
+						trunk.setAttribute('position', `0 ${trunkHeight / 2} 0`);
 						trunk.setAttribute('radius', randomInRange(0.30, 0.6));
 						trunk.setAttribute('height', trunkHeight);
 						trunk.setAttribute('color', '#2d2622');
-						trunk.setAttribute('shadow', 'cast: true');
+                        trunk.setAttribute('shadow', 'cast: true');
+                        trunk.setAttribute('class', 'collision');
 
 						const crown = document.createElement('a-sphere');
 						const crownRadius = randomInRange(2.2, 4.0);
-						crown.setAttribute('position', `${positionX} ${trunkHeight + crownRadius * 0.9} ${positionZ}`);
+						crown.setAttribute('position', `0 ${trunkHeight + crownRadius * 0.9} 0`);
 						crown.setAttribute('radius', crownRadius);
 						crown.setAttribute('scale', `${randomInRange(1.0, 1.2)} ${randomInRange(0.8, 1.0)} ${randomInRange(1.0, 1.2)}`);
 						crown.setAttribute('color', '#1C2A1F');
-						crown.setAttribute('shadow', 'cast: true');
+					// анимация крон для 60% деревьев
+					if (Math.random() > 0.4) {
+						const ampCrown = randomInRange(5, 9);
+						const speedCrown = randomInRange(0.35, 0.5);
+						crown.setAttribute('crown-sway', `amp: ${ampCrown}; speed: ${speedCrown}`);
+					}
 
-						sceneEl.appendChild(trunk);
-						sceneEl.appendChild(crown);
+						group.appendChild(trunk);
+						group.appendChild(crown);
+						sceneEl.appendChild(group);
 					}
 
 					function createBushCluster(positionX, positionZ) {
 						const cluster = document.createElement('a-entity');
 						cluster.setAttribute('position', `${positionX} 0 ${positionZ}`);
 						// Несколько перекрывающихся сфер для визуально отличного куста
-						const blobCount = Math.floor(randomInRange(2, 5));
+						const blobCount = Math.floor(randomInRange(2, 4));
 						for (let i = 0; i < blobCount; i++) {
 							const blob = document.createElement('a-sphere');
 							const r = randomInRange(0.5, 1.2);
@@ -172,21 +347,18 @@
 							blob.setAttribute('radius', r);
 							blob.setAttribute('scale', `${randomInRange(1.0, 1.4)} ${randomInRange(0.6, 0.9)} ${randomInRange(1.0, 1.4)}`);
 							blob.setAttribute('color', '#1A2A1A');
-							blob.setAttribute('shadow', 'cast: true');
 							cluster.appendChild(blob);
 						}
 						sceneEl.appendChild(cluster);
 					}
 
 					function createRock(positionX, positionZ) {
-						const rock = document.createElement('a-sphere');
-						const r = randomInRange(0.35, 1.2);
-						rock.setAttribute('position', `${positionX} ${r * 0.5} ${positionZ}`);
-						rock.setAttribute('radius', r);
-						// Сплюснутые формы, чтобы отличались от кустов
-						rock.setAttribute('scale', `${randomInRange(1.2, 1.8)} ${randomInRange(0.5, 0.8)} ${randomInRange(1.0, 1.6)}`);
-						rock.setAttribute('color', '#6B7280');
-						rock.setAttribute('shadow', 'cast: true');
+						const rock = document.createElement('a-entity');
+						const s = randomInRange(3.0, 9.0); // увеличено в 5 раз
+						rock.setAttribute('gltf-model', '#rockModel');
+						rock.setAttribute('scale', `${s} ${s} ${s}`);
+						rock.setAttribute('position', `${positionX} 0 ${positionZ}`);
+						rock.setAttribute('ground-align', '');
 						sceneEl.appendChild(rock);
 					}
 
@@ -242,6 +414,840 @@
 					}
 				}
 			});
+
+            // (удалено) follow-player-fog — не используется
+
+			AFRAME.registerComponent('proximity-once', {
+				schema: { radius: {type: 'number', default: 3.0}, targetLeft: {type: 'selector'}, targetRight: {type: 'selector'} },
+				init: function () { this.done = false; },
+				tick: function () {
+					if (this.done) return;
+					const cam = document.getElementById('cam');
+					if (!cam) return;
+					const a = this.el.object3D.getWorldPosition(new THREE.Vector3());
+					const p = cam.object3D.getWorldPosition(new THREE.Vector3());
+					const dx = a.x - p.x, dz = a.z - p.z; const dist2 = dx*dx + dz*dz;
+					if (dist2 <= this.data.radius * this.data.radius) {
+						this.done = true;
+						if (this.data.targetLeft) this.data.targetLeft.emit('douse');
+						if (this.data.targetRight) this.data.targetRight.emit('douse');
+					}
+				}
+			});
+
+
+
+			// Лёгкое покачивание крон деревьев (рандомная фаза)
+			AFRAME.registerComponent('crown-sway', {
+				schema: { amp: {type: 'number', default: 5}, speed: {type: 'number', default: 0.45} },
+				init: function () {
+					const amp = this.data.amp;
+					const dur = Math.floor(3500 + Math.random() * 2500);
+					const delay = Math.floor(Math.random() * 1200);
+					this.el.setAttribute('animation__sway', `property: rotation; from: -${amp} 0 ${amp}; to: ${amp} 0 -${amp}; dir: alternate; dur: ${dur}; loop: true; easing: easeInOutSine; delay: ${delay}`);
+				}
+			});
+
+			// Лёгкое покачивание стволов (едва заметное)
+			AFRAME.registerComponent('tree-sway', {
+				schema: { amp: {type: 'number', default: 3}, speed: {type: 'number', default: 0.33} },
+				init: function () {
+					const amp = this.data.amp;
+					const dur = Math.floor(4200 + Math.random() * 2600);
+					const delay = Math.floor(Math.random() * 1200);
+					// Наклоняем ствол по Z, чуть-чуть крутим по Y
+					this.el.setAttribute('animation__sway', `property: rotation; from: 0 ${-amp*0.25} ${-amp}; to: 0 ${amp*0.25} ${amp}; dir: alternate; dur: ${dur}; loop: true; easing: easeInOutSine; delay: ${delay}`);
+				}
+			});
+
+            // Подбор фонарика и управление (E/F)
+			AFRAME.registerComponent('player-flashlight', {
+				init: function () {
+					this.isOn = false;
+					this.lightEl = this.el.querySelector('.flashlight-light');
+                    this.onKey = (e) => {
+                        if (e.key === 'f' || e.key === 'F') {
+                            this.isOn = !this.isOn;
+                            if (this.lightEl) {
+                                this.lightEl.setAttribute('light', 'intensity', this.isOn ? 100 : 0.0);
+                                this.lightEl.setAttribute('visible', this.isOn ? true : false);
+                            }
+                            window.FLASHLIGHT_ON = this.isOn;
+                            // динамика видимости: при включённом фонаре чуть уменьшаем туман и поднимаем ambient
+                            const scene = document.querySelector('a-scene');
+                            const amb = document.getElementById('ambient-light');
+                            const moon = document.getElementById('moon-light');
+                            if (scene) {
+                                const fog = scene.getAttribute('fog') || {}; const cur = fog.density || 0.12;
+                                const to = this.isOn ? 0.15 : 0.22; // при включении фонаря туман остаётся ощутимым
+                                scene.setAttribute('animation__fog_toggle', `property: fog.density; from: ${cur}; to: ${to}; dur: 6000; easing: easeInOutSine`);
+                            }
+                            if (amb) {
+                                const l = amb.getAttribute('light') || {}; const curI = l.intensity || 0.10;
+                                const toI = this.isOn ? 0.03 : 0.02; // максимальная видимость ниже
+                                amb.setAttribute('animation__amb_toggle', `property: light.intensity; from: ${curI}; to: ${toI}; dur: 6000; easing: easeInOutSine`);
+                            }
+                            if (moon) {
+                                const lm = moon.getAttribute('light') || {}; const curM = lm.intensity || 0.20;
+                                const toM = this.isOn ? 0.08 : 0.06;
+                                moon.setAttribute('animation__moon_toggle', `property: light.intensity; from: ${curM}; to: ${toM}; dur: 6000; easing: easeInOutSine`);
+                            }
+                        }
+                    };
+					window.addEventListener('keydown', this.onKey);
+				},
+				remove: function () { window.removeEventListener('keydown', this.onKey); }
+			});
+
+			AFRAME.registerComponent('flashlight-pickup', {
+				schema: { attach: {type: 'selector'}, radius: {type: 'number', default: 2.0} },
+				init: function () {
+					this.isPicking = false;
+					this.onKey = this.onKey.bind(this);
+					window.addEventListener('keydown', this.onKey);
+				},
+				tryPickup: function () {
+					if (document.getElementById('held-flashlight')) return; // уже подобран
+					const cam = this.data.attach || document.getElementById('cam');
+					if (!cam) return;
+					const a = this.el.object3D.getWorldPosition(new THREE.Vector3());
+					const p = cam.object3D.getWorldPosition(new THREE.Vector3());
+					const dx = a.x - p.x, dz = a.z - p.z; const dist2 = dx*dx + dz*dz;
+					if (dist2 > this.data.radius * this.data.radius) return; // далеко
+					if (this.isPicking) return; this.isPicking = true;
+					// Летающий проп к камере (в мировых координатах)
+					const start = this.el.object3D.getWorldPosition(new THREE.Vector3());
+					const camPos = cam.object3D.getWorldPosition(new THREE.Vector3());
+					// целевая позиция: правее и ниже, на вытянутых руках
+					const localOffset = new THREE.Vector3(0.18, -0.12, -0.50);
+					const holdOffset = localOffset.clone().applyQuaternion(cam.object3D.quaternion);
+					const dest = camPos.clone().add(holdOffset);
+					const fly = document.createElement('a-entity');
+					fly.setAttribute('gltf-model', '#flashlightModel');
+					fly.setAttribute('scale', '0.015 0.015 0.015');
+					fly.setAttribute('position', `${start.x} ${start.y} ${start.z}`);
+					fly.setAttribute('animation__move', `property: position; to: ${dest.x} ${dest.y} ${dest.z}; dur: 520; easing: easeOutCubic`);
+					this.el.sceneEl.appendChild(fly);
+					// убрать исходный предмет практически сразу
+					setTimeout(()=>{ this.el.parentNode && this.el.parentNode.removeChild(this.el); }, 80);
+					// создать фонарик у камеры после прилёта
+					setTimeout(()=>{
+						const held = document.createElement('a-entity');
+						held.setAttribute('id', 'held-flashlight');
+						held.setAttribute('position', '0 -0.12 -0.50');
+						held.setAttribute('rotation', '0 0 0');
+						held.setAttribute('player-flashlight', '');
+						const light = document.createElement('a-entity');
+						light.setAttribute('class', 'flashlight-light');
+						light.setAttribute('position', '0 0 -0.12');
+                        light.setAttribute('visible', 'true');
+                        light.setAttribute('light', 'type: spot; color: #B9A13A; intensity: 100; distance: 160; decay: 0.85; angle: 30; penumbra: 0.3; castShadow: true');
+						held.appendChild(light);
+						const fill = document.createElement('a-entity');
+						fill.setAttribute('class', 'flashlight-fill');
+						fill.setAttribute('position', '0 -0.02 -0.1');
+                        fill.setAttribute('visible', 'true');
+                        fill.setAttribute('light', 'type: point; color: #B9A13A; intensity: 0.6; distance: 4; decay: 2');
+						held.appendChild(fill);
+						cam.appendChild(held);
+                        // включаем состояние компонента сразу, чтобы луч работал
+                        setTimeout(()=>{
+                            const comp = held.components['player-flashlight'];
+                            if (comp) {
+                                comp.isOn = true;
+                                comp.lightEl = comp.lightEl || light;
+                                if (comp.lightEl) {
+                                    comp.lightEl.setAttribute('light', 'intensity', 100);
+                                    comp.lightEl.setAttribute('visible', true);
+                                }
+                                window.FLASHLIGHT_ON = true;
+                            }
+                            // запустить Taos Hum после подбора
+                            const bgmEl = document.getElementById('bgm-sound');
+                            try { bgmEl && bgmEl.components && bgmEl.components.sound && bgmEl.components.sound.playSound(); } catch(e) {}
+                        }, 10);
+						fly.parentNode && fly.parentNode.removeChild(fly);
+					}, 540);
+					// Постепенно сгущаем тьму
+					const scene = document.querySelector('a-scene');
+					if (scene) {
+						const fog = scene.getAttribute('fog') || {}; const fromD = fog.density || 0.12;
+						scene.setAttribute('animation__fog', `property: fog.density; from: ${fromD}; to: 0.22; dur: 8000; easing: easeInOutSine`);
+					}
+					const amb = document.getElementById('ambient-light');
+					if (amb) {
+						const l = amb.getAttribute('light') || {}; const fromI = l.intensity || 0.10;
+						amb.setAttribute('animation__dim', `property: light.intensity; from: ${fromI}; to: 0.02; dur: 8000; easing: easeInOutSine`);
+					}
+					const moon = document.getElementById('moon-light');
+					if (moon) {
+						const lm = moon.getAttribute('light') || {}; const fromM = lm.intensity || 0.20;
+						moon.setAttribute('animation__moon', `property: light.intensity; from: ${fromM}; to: 0.06; dur: 8000; easing: easeInOutSine`);
+					}
+					// убрать предмет с земли после короткой анимации
+					setTimeout(()=>{ this.el.parentNode && this.el.parentNode.removeChild(this.el); }, 580);
+				},
+				onKey: function (e) {
+					if (e.key === 'e' || e.key === 'E') { e.preventDefault(); this.tryPickup(); }
+				},
+				remove: function () { window.removeEventListener('keydown', this.onKey); }
+			});
+
+			// Блокировка опасных шорткатов браузера (Ctrl+W/E/...) при управлении
+			AFRAME.registerComponent('keyboard-suppress', {
+				init: function () {
+					this.onKeyDown = (e) => {
+						if (!e.ctrlKey) return;
+						const code = e.code || '';
+						if (code === 'KeyW' || code === 'KeyE' || code === 'KeyR' || code === 'KeyT' || code === 'KeyP' || code === 'KeyN') {
+							if (e.cancelable) e.preventDefault();
+							e.stopPropagation();
+							e.stopImmediatePropagation();
+							return false;
+						}
+					};
+					window.addEventListener('keydown', this.onKeyDown, { capture: true });
+					document.addEventListener('keydown', this.onKeyDown, { capture: true });
+				},
+				remove: function () {
+					window.removeEventListener('keydown', this.onKeyDown, { capture: true });
+					document.removeEventListener('keydown', this.onKeyDown, { capture: true });
+				}
+			});
+
+            // (удалено) window-flash — не используется
+
+            // Птица на дереве: сидит, затем улетает при приближении/подсветке
+            AFRAME.registerComponent('bird-perch', {
+                schema: { triggerRadius: {type: 'number', default: 5} },
+                init: function(){
+                    this.bird = null; this.state = 'perched'; this.vel = new THREE.Vector3(); this.time = 0;
+                    this.el.addEventListener('model-loaded', () => {
+                        const m = this.el.getObject3D('mesh'); if (!m) return;
+                        m.traverse((n)=>{
+                            if (n.isMesh && /bird|crow|raven/i.test(n.name)) { this.bird = n; }
+                        });
+                        if (this.bird) {
+                            this.startPos = this.bird.getWorldPosition(new THREE.Vector3());
+                        }
+                    });
+                    // улёт по событию, когда подсвечены все руны
+                    this.onRunes = () => { if (this.state==='perched') this.startFlee(); };
+                    this.el.addEventListener('runes-completed', this.onRunes);
+                },
+                startFlee: function(){
+                    const cam = document.getElementById('cam'); if (!cam || !this.bird) return;
+                    const bp = this.bird.getWorldPosition(new THREE.Vector3());
+                    const cp = cam.object3D.getWorldPosition(new THREE.Vector3());
+                    const dir = bp.clone().sub(cp).normalize().add(new THREE.Vector3(0,0.8,0));
+                    this.vel.copy(dir.normalize().multiplyScalar(6));
+                    this.state='flee'; this.time=0;
+                },
+                tick: function(t, dt){
+                    if (!this.bird) return; const dts = (dt||16)/1000;
+                    const cam = document.getElementById('cam'); if (!cam) return;
+                    const bp = this.bird.getWorldPosition(new THREE.Vector3());
+                    const cp = cam.object3D.getWorldPosition(new THREE.Vector3());
+                    const dist = bp.distanceTo(cp);
+                    if (this.state==='perched'){
+                        // если близко или фонарём почти в упор
+                        const forward = new THREE.Vector3(0,0,-1).applyQuaternion(cam.object3D.quaternion);
+                        const dirToBird = bp.clone().sub(cp).normalize();
+                        const aimed = forward.dot(dirToBird) > 0.95 && window.FLASHLIGHT_ON;
+                        if (dist < this.data.triggerRadius || aimed){ this.startFlee(); }
+                    } else if (this.state==='flee'){
+                        this.time += dts; this.bird.position.add(this.vel.clone().multiplyScalar(dts));
+                        this.bird.rotateY(0.6*dts); this.bird.rotateZ(0.2*dts);
+                        if (this.time>1) { this.bird.visible=false; this.state='gone'; }
+                    }
+                }
+            });
+
+            // Выравнивание объекта по земле: опускает так, чтобы нижняя точка касалась y=0
+            AFRAME.registerComponent('ground-align', {
+                schema: { offset: {type: 'number', default: 0} },
+                init: function(){
+                    const onLoaded = () => {
+                        const obj = this.el.getObject3D('mesh'); if (!obj) return;
+                        const box = new THREE.Box3().setFromObject(obj);
+                        const minY = box.min.y;
+                        const pos = this.el.object3D.position;
+                        // сдвиг вверх на -minY плюс небольшой оффсет
+                        pos.y += -minY + this.data.offset;
+                    };
+                    if (this.el.getObject3D('mesh')) onLoaded();
+                    this.el.addEventListener('model-loaded', onLoaded);
+                }
+            });
+
+            // Фоновая музыка: автозапуск после первого взаимодействия + глобальная настройка громкости
+            AFRAME.registerComponent('bgm-launch', {
+                init: function(){
+                    this.started = false;
+                    const el = this.el;
+                    const tryStart = () => {
+                        if (this.started) return;
+                        const comp = el.components.sound;
+                        if (comp && comp.playSound) {
+                            try { comp.playSound(); this.started = true; cleanup(); } catch(e) {}
+                        }
+                    };
+                    const cleanup = () => {
+                        window.removeEventListener('click', tryStart, { capture: true });
+                        window.removeEventListener('keydown', tryStart, { capture: true });
+                        this.el.sceneEl && this.el.sceneEl.removeEventListener('enter-vr', tryStart);
+                    };
+                    window.addEventListener('click', tryStart, { capture: true });
+                    window.addEventListener('keydown', tryStart, { capture: true });
+                    this.el.sceneEl && this.el.sceneEl.addEventListener('enter-vr', tryStart);
+                    // Глобальный setter: window.setBgmVolume(0..1)
+                    window.setBgmVolume = (v) => {
+                        const vol = Math.max(0, Math.min(1, Number(v)));
+                        el.setAttribute('sound', 'volume', vol);
+                    };
+                }
+            });
+
+			// Rune glow: активация рун фонариком вблизи, постоянное свечение активированных
+			AFRAME.registerComponent('rune-glow', {
+				schema: {
+					distance: {type: 'number', default: 5.5},
+					aimDot: {type: 'number', default: 0.992},
+					activatedColor: {type: 'color', default: '#00ff66'},
+					activatedIntensity: {type: 'number', default: 3.2}
+				},
+				init: function () {
+					this.time = 0;
+					this.targets = [];
+					this.activated = [];
+					this.activatedCount = 0;
+					this.el.addEventListener('model-loaded', () => {
+						const model = this.el.getObject3D('mesh');
+						if (!model) return;
+						const runeNames = ['Object_8002', 'Object_28001', 'Object_46001', 'Object_50001', 'rune', 'Rune', 'symbol', 'Symbol'];
+						model.traverse((node) => {
+							if (node.isMesh && (runeNames.includes(node.name) || /rune|symbol/i.test(node.name) || (node.material && node.material.color && node.material.color.g > (node.material.color.r + node.material.color.b) * 0.8))) {
+								node.material = node.material.clone();
+								node.material.emissive = new THREE.Color(0x00ffff);
+								node.material.emissiveIntensity = 2.0;
+								node.material.roughness = 0.2;
+								node.material.metalness = 0.1;
+								this.targets.push(node);
+								this.activated.push(false);
+							}
+						});
+					});
+				},
+				tick: function (time, dt) {
+					if (!this.targets.length) return;
+					this.time += dt / 1000;
+					const t = (Math.sin(this.time * 2.0) + 1) / 2;
+					const pulseColor = new THREE.Color(0x00ffff).lerp(new THREE.Color(0xffffff), t);
+					const pulseIntensity = 2.0 + Math.sin(this.time * 2.0) * 1.0;
+					const cam = document.getElementById('cam');
+					const camPos = cam ? cam.object3D.getWorldPosition(new THREE.Vector3()) : null;
+					const forward = cam ? new THREE.Vector3(0,0,-1).applyQuaternion(cam.object3D.quaternion) : null;
+					for (let i = 0; i < this.targets.length; i++) {
+						const mat = this.targets[i].material;
+						if (this.activated[i]) {
+							mat.emissive.set(this.data.activatedColor);
+							mat.emissiveIntensity = this.data.activatedIntensity;
+							mat.needsUpdate = true;
+							continue;
+						}
+						mat.emissive.copy(pulseColor);
+						mat.emissiveIntensity = pulseIntensity;
+						mat.needsUpdate = true;
+						if (cam && window.FLASHLIGHT_ON) {
+							const wp = this.targets[i].getWorldPosition(new THREE.Vector3());
+							const dir = wp.clone().sub(camPos).normalize();
+							const aimed = forward.dot(dir) > this.data.aimDot;
+							const dist = wp.distanceTo(camPos);
+							if (aimed && dist < this.data.distance && !this.activated[i]) {
+								this.activated[i] = true;
+								this.activatedCount++;
+								if (this.activatedCount >= 4) {
+									this.el.emit('runes-completed');
+								}
+							}
+						}
+					}
+				}
+			});
+
+
+			// Подбор ключа у дерева
+			AFRAME.registerComponent('key-pickup', {
+				schema: { radius: {type: 'number', default: 2.4} },
+				init: function(){
+					this.onKey = (e)=>{ if (e.key==='e' || e.key==='E'){ e.preventDefault(); this.tryPickup(); } };
+					window.addEventListener('keydown', this.onKey);
+				},
+				remove: function(){ window.removeEventListener('keydown', this.onKey); },
+				tryPickup: function(){
+					const cam = document.getElementById('cam'); if (!cam) return;
+					const a = this.el.object3D.getWorldPosition(new THREE.Vector3());
+					const p = cam.object3D.getWorldPosition(new THREE.Vector3());
+					const dx = a.x - p.x, dz = a.z - p.z; if (dx*dx + dz*dz > this.data.radius*this.data.radius) return;
+					this.el.parentNode && this.el.parentNode.removeChild(this.el);
+					window.HAS_KEY = true;
+					console.log('Ключ подобран! Теперь можно исследовать лагерь и колодец.');
+				}
+			});
+
+			// Скример у колодца: активируется при нажатии E рядом с колодцем
+			AFRAME.registerComponent('well-scare', {
+				schema: { radius: {type: 'number', default: 8.0} },
+				init: function(){ 
+					this.done = false; 
+					this.onKey = (e) => { 
+						if (e.key === 'e' || e.key === 'E') { 
+							e.preventDefault(); 
+							this.tryTrigger(); 
+						} 
+					};
+					window.addEventListener('keydown', this.onKey);
+				},
+				remove: function(){ window.removeEventListener('keydown', this.onKey); },
+				tryTrigger: function(){
+					if (this.done) return;
+					const cam = document.getElementById('cam'); if (!cam) return;
+					const wp = this.el.object3D.getWorldPosition(new THREE.Vector3());
+					const cp = cam.object3D.getWorldPosition(new THREE.Vector3());
+					const dx = wp.x - cp.x, dz = wp.z - cp.z; 
+					const dist2 = dx*dx + dz*dz;
+					if (dist2 > this.data.radius*this.data.radius) return; // далеко
+					this.trigger();
+				},
+				trigger: function(){
+					this.done = true;
+					const cam = document.getElementById('cam'); if (!cam) return;
+					// экранный образ
+					const img = document.createElement('a-image');
+					img.setAttribute('src', '#ghostImage');
+					img.setAttribute('position', '0 0 -0.9');
+					img.setAttribute('width', '1.6');
+					img.setAttribute('height', '1.6');
+					img.setAttribute('material', 'opacity: 0; transparent: true');
+					img.setAttribute('animation__in', 'property: material.opacity; from: 0; to: 1; dur: 140; easing: easeOutQuad');
+					img.setAttribute('animation__out', 'property: material.opacity; to: 0; dur: 220; easing: easeInQuad; delay: 320');
+					cam.appendChild(img);
+					// звук крика
+					const snd = document.createElement('a-entity');
+					snd.setAttribute('sound', 'src: #scream; autoplay: true; loop: false; volume: 0.9; positional: false');
+					cam.appendChild(snd);
+					setTimeout(()=>{ img.parentNode && img.parentNode.removeChild(img); snd.parentNode && snd.parentNode.removeChild(snd); }, 800);
+				}
+			});
+
+			// Подбор записки: показывает текст при нажатии E, закрывается на E
+			AFRAME.registerComponent('note-pickup', {
+				schema: { 
+					radius: {type: 'number', default: 2.5}
+				},
+				init: function(){
+					this.picked = false;
+					this.onKey = (e) => { 
+						if (e.key === 'e' || e.key === 'E') { 
+							e.preventDefault(); 
+							this.tryPickup(); 
+						} 
+					};
+					window.addEventListener('keydown', this.onKey);
+				},
+				remove: function(){ 
+					window.removeEventListener('keydown', this.onKey);
+				},
+				tryPickup: function(){
+					if (this.picked) return; // уже подобрана
+					const cam = document.getElementById('cam'); if (!cam) return;
+					const a = this.el.object3D.getWorldPosition(new THREE.Vector3());
+					const p = cam.object3D.getWorldPosition(new THREE.Vector3());
+					const dx = a.x - p.x, dz = a.z - p.z; 
+					if (dx*dx + dz*dz > this.data.radius*this.data.radius) return;
+					this.picked = true;
+					// убрать записку с земли
+					this.el.parentNode && this.el.parentNode.removeChild(this.el);
+					
+					// показать HTML overlay с текстом
+					const overlay = document.getElementById('note-overlay');
+					if (overlay) {
+						overlay.classList.add('show');
+					}
+				}
+			});
+
+			// Глобальный обработчик для закрытия записки на E
+			window.addEventListener('keydown', function(e){
+				if (e.key === 'e' || e.key === 'E') {
+					const overlay = document.getElementById('note-overlay');
+					if (overlay && overlay.classList.contains('show')) {
+						e.preventDefault();
+						overlay.classList.remove('show');
+					}
+				}
+			});
+
+			// Анимация двери дома - открывается только при наличии ключа
+			AFRAME.registerComponent('door-anim', {
+				schema: { 
+					radius: {type: 'number', default: 12.0}
+				},
+				init: function(){
+					this.door = null;
+					this.doorPivot = null;
+					this.isOpen = false;
+
+					const el = this.el;
+
+					el.addEventListener('model-loaded', () => {
+						const model = el.getObject3D('mesh');
+						if (!model) return;
+
+						model.traverse((node) => {
+							if (node.isMesh && node.name === 'door_2002') {
+								console.log('Найдена дверь:', node.name);
+
+								// Создаем pivot (точку вращения)
+								const pivot = new THREE.Object3D();
+
+								// Размещаем pivot в позиции двери
+								pivot.position.copy(node.position);
+
+								// Перемещаем дверь внутрь pivot
+								node.position.set(0, 0, 0);
+								pivot.add(node);
+
+								// Добавляем pivot в модель
+								model.add(pivot);
+
+								this.doorPivot = pivot;
+								this.door = node;
+
+								console.log('Pivot создан, дверь готова к анимации');
+							}
+						});
+					});
+
+					this.onKey = (e) => {
+						if (e.key === 'e' || e.key === 'E') {
+							e.preventDefault();
+							this.tryToggleDoor();
+						}
+					};
+					window.addEventListener('keydown', this.onKey);
+				},
+
+				remove: function(){
+					window.removeEventListener('keydown', this.onKey);
+				},
+
+				tryToggleDoor: function(){
+					// Проверка расстояния до двери
+					const cam = document.getElementById('cam');
+					if (!cam) return;
+					const housePos = this.el.object3D.getWorldPosition(new THREE.Vector3());
+					const camPos = cam.object3D.getWorldPosition(new THREE.Vector3());
+					const dx = housePos.x - camPos.x;
+					const dz = housePos.z - camPos.z;
+					const dist = Math.sqrt(dx*dx + dz*dz);
+					if (dist > this.data.radius) return; // далеко
+
+					// Проверка наличия ключа
+					if (!window.HAS_KEY) {
+						console.log('Дверь заперта! Нужен ключ.');
+						// Можно добавить звук или визуальную подсказку
+						return;
+					}
+
+					this.toggleDoor();
+				},
+
+				toggleDoor: function(){
+					if (!this.doorPivot) return;
+
+					const pivot = this.doorPivot;
+					const from = { y: pivot.rotation.y };
+					const to = { y: this.isOpen ? 0 : Math.PI / 2 };
+					this.isOpen = !this.isOpen;
+
+					const start = performance.now();
+					const duration = 800;
+
+					const animate = (time) => {
+						const t = Math.min((time - start) / duration, 1);
+						pivot.rotation.y = from.y + (to.y - from.y) * t;
+						if (t < 1) requestAnimationFrame(animate);
+					};
+
+					requestAnimationFrame(animate);
+					console.log(this.isOpen ? 'Дверь открыта' : 'Дверь закрыта');
+				}
+			});
+
+			// Контроллер вороны на древнем дереве: idle -> fly + звук; сброс ключа
+            AFRAME.registerComponent('crow-controller', {
+                schema: { dropKeyAsset: {type: 'string', default: '#keyModel'} },
+                init: function(){
+                    this.bird = null; this.birdNodes = []; this.idleClip = null; this.flyClip = null; this.state = 'perched';
+                    this.crowSound = null; this.treeTopY = 10;
+                    const onLoaded = () => {
+                        const root = this.el.getObject3D('mesh'); if (!root) return;
+                        // найти ворону
+                        // ищем узлы вороны (подойдёт и группа)
+                        root.traverse(n=>{ if (/bird|crow|raven/i.test(n.name)) { if (!this.bird) this.bird = n; this.birdNodes.push(n); } });
+                        // двигать можно ТОЛЬКО ворону; дерево не трогаем
+                        this.movable = this.bird ? this.bird : null;
+                        // верхушка дерева для позиционирования звука
+                        try { const box = new THREE.Box3().setFromObject(root); this.treeTopY = Math.max(8, box.max.y); } catch(e) {}
+                        // собрать имена анимаций
+                        const anims = (root.animations && root.animations.length ? root.animations : ((root.userData && root.userData.gltfAnimations) || [])) || [];
+                        const names = anims.map(a=> (a && a.name ? a.name : '') );
+                        const lower = names.map(n=> n.toLowerCase());
+                        // подобрать клипы (гибкая эвристика)
+                        let idleIdx = lower.findIndex(n=> /idle|perch|sit|loop/.test(n));
+                        if (idleIdx === -1) idleIdx = 0;
+                        let flyIdx = lower.findIndex(n=> /fly|takeoff|escape|runaway|leave|soar|flight/.test(n));
+                        if (flyIdx === -1) {
+                            flyIdx = names.length > 1 ? (idleIdx === 0 ? 1 : 0) : -1; // возьмём другой клип, если есть
+                        }
+                        this.idleClip = names[idleIdx] || (names[0] || null);
+                        this.flyClip = flyIdx >= 0 ? names[flyIdx] : null;
+                        if (this.idleClip) {
+                            this.el.setAttribute('animation-mixer', `clip: ${this.idleClip}; loop: repeat; crossFadeDuration: 0.3`);
+                        } else if (names.length) {
+                            this.el.setAttribute('animation-mixer', `clip: ${names[0]}; loop: repeat; crossFadeDuration: 0.3`);
+                        }
+                        // звук вороны — на верхушке дерева
+                        const snd = document.createElement('a-entity');
+                        snd.setAttribute('position', `0 ${this.treeTopY} 0`);
+                        snd.setAttribute('sound', 'src: #crows; volume: 0.9; loop: false; positional: true');
+                        this.el.appendChild(snd);
+                        this.crowSound = snd;
+                    };
+                    if (this.el.getObject3D('mesh')) onLoaded();
+                    this.el.addEventListener('model-loaded', onLoaded);
+                    this.onRunes = ()=> { if (this.state==='perched') this.escape(); };
+                    this.el.addEventListener('runes-completed', this.onRunes);
+                },
+                remove: function(){ this.el.removeEventListener('runes-completed', this.onRunes); },
+                escape: function(){
+                    this.state='flying';
+                    try { this.crowSound && this.crowSound.components.sound && this.crowSound.components.sound.playSound(); } catch(e) {}
+                    if (this.flyClip) {
+                        this.el.setAttribute('animation-mixer', `clip: ${this.flyClip}; loop: once; repetitions: 1; clampWhenFinished: true; crossFadeDuration: 0.2`);
+                        setTimeout(()=>{ 
+                            if (this.birdNodes && this.birdNodes.length) { this.birdNodes.forEach(n=> n.visible=false); }
+                            else if (this.movable) { this.movable.visible=false; }
+                            this.state='gone';
+                        }, 1600);
+                    } else {
+                        // fallback: простое отдаление
+                        if (this.movable) {
+                            this.vel = new THREE.Vector3(0.6, 0.8, 0.6);
+                            this.time = 0; this.state='flee';
+                        } else {
+                            // если ворону не нашли — хотя бы скрыть возможные узлы с похожими именами
+                            const root = this.el.getObject3D('mesh');
+                            if (root) { root.traverse(n=>{ if (/bird|crow|raven/i.test(n.name)) n.visible=false; }); }
+                            this.state='gone';
+                        }
+                    }
+                    this.dropKey();
+                },
+                tick: function(t,dt){
+                    if (this.state==='flee' && this.movable) {
+                        const dts = (dt||16)/1000; this.time += dts;
+                        this.movable.position.add(this.vel.clone().multiplyScalar(dts*4));
+                        this.movable.rotateY(0.6*dts); this.movable.rotateZ(0.2*dts);
+                        if (this.time>1.2) { this.movable.visible=false; this.state='gone'; }
+                    }
+                },
+                dropKey: function(){
+                    const scene = this.el.sceneEl || document.querySelector('a-scene');
+                    if (!scene) return;
+                    const wp = this.el.object3D.getWorldPosition(new THREE.Vector3());
+                    const fromPos = `${wp.x.toFixed(3)} 2.0 ${wp.z.toFixed(3)}`;
+                    const toPos = `${wp.x.toFixed(3)} 0.12 ${wp.z.toFixed(3)}`;
+                    const key = document.createElement('a-entity');
+                    key.setAttribute('gltf-model', this.data.dropKeyAsset);
+                    key.setAttribute('scale', '3 3 3');
+                    key.setAttribute('position', fromPos);
+                    key.setAttribute('rotation', '0 0 0');
+                    key.setAttribute('key-pickup', 'radius: 2.6');
+                    key.setAttribute('shadow', 'cast: true; receive: true');
+                    key.setAttribute('animation__drop', `property: position; from: ${fromPos}; to: ${toPos}; dur: 800; easing: easeInQuad`);
+                    scene.appendChild(key);
+                }
+            });
+
+			// Вертикальное перемещение (для подъема по лестницам)
+			AFRAME.registerComponent('vertical-movement', {
+				schema: {
+					speed: {type: 'number', default: 3.0}
+				},
+				init: function(){
+					this.moveUp = false;
+					this.moveDown = false;
+					this.cam = document.getElementById('cam');
+					
+					this.onKeyDown = (e) => {
+						// Space или Q - подняться
+						if (e.code === 'Space' || e.code === 'KeyQ') {
+							this.moveUp = true;
+							// Временно отключить коллизии при подъеме
+							if (this.cam && this.cam.components['reset-on-collision']) {
+								this.cam.components['reset-on-collision'].pause();
+							}
+							e.preventDefault();
+						}
+						// Shift или Z - опуститься  
+						if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyZ') {
+							this.moveDown = true;
+							// Временно отключить коллизии при спуске
+							if (this.cam && this.cam.components['reset-on-collision']) {
+								this.cam.components['reset-on-collision'].pause();
+							}
+							e.preventDefault();
+						}
+					};
+					
+					this.onKeyUp = (e) => {
+						if (e.code === 'Space' || e.code === 'KeyQ') {
+							this.moveUp = false;
+							// Включить коллизии обратно
+							if (this.cam && this.cam.components['reset-on-collision']) {
+								this.cam.components['reset-on-collision'].play();
+							}
+						}
+						if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyZ') {
+							this.moveDown = false;
+							// Включить коллизии обратно
+							if (this.cam && this.cam.components['reset-on-collision']) {
+								this.cam.components['reset-on-collision'].play();
+							}
+						}
+					};
+					
+					window.addEventListener('keydown', this.onKeyDown);
+					window.addEventListener('keyup', this.onKeyUp);
+				},
+				
+				tick: function(time, dt){
+					const position = this.el.getAttribute('position');
+					const delta = (dt / 1000) * this.data.speed;
+					
+					if (this.moveUp) {
+						position.y += delta;
+					}
+					if (this.moveDown) {
+						position.y -= delta;
+						// Не опускаться ниже минимальной высоты
+						if (position.y < 0.5) position.y = 0.5;
+					}
+					
+					this.el.setAttribute('position', position);
+				},
+				
+				remove: function(){
+					window.removeEventListener('keydown', this.onKeyDown);
+					window.removeEventListener('keyup', this.onKeyUp);
+				}
+			});
+
+			// Приседание по Ctrl: плавно меняет высоту и скорость перемещения
+			AFRAME.registerComponent('crouch', {
+				schema: { stand: {type: 'number', default: 1.6}, crouch: {type: 'number', default: 0.6}, speed: {type: 'number', default: 10}, accelStand: {type: 'number', default: 30}, accelCrouch: {type: 'number', default: 15} },
+				init: function () {
+					this.targetY = this.data.stand;
+					this.cam = document.getElementById('cam');
+					this.onKeyDown = (e) => {
+						if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
+							this.targetY = this.data.crouch;
+							if (this.cam) this.cam.setAttribute('wasd-controls', `acceleration: ${this.data.accelCrouch}`);
+						}
+					};
+					this.onKeyUp = (e) => {
+						if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
+							this.targetY = this.data.stand;
+							if (this.cam) this.cam.setAttribute('wasd-controls', `acceleration: ${this.data.accelStand}`);
+						}
+					};
+					window.addEventListener('keydown', this.onKeyDown);
+					window.addEventListener('keyup', this.onKeyUp);
+				},
+				tick: function (time, dt) {
+					const pos = this.el.getAttribute('position');
+					const k = Math.min(1, (dt / 1000) * this.data.speed);
+					pos.y = pos.y + (this.targetY - pos.y) * k;
+					this.el.setAttribute('position', pos);
+				},
+				remove: function () {
+					window.removeEventListener('keydown', this.onKeyDown);
+					window.removeEventListener('keyup', this.onKeyUp);
+				}
+			});
+
+			// Компонент для взаимодействия с диктофоном
+			AFRAME.registerComponent('recorder-interaction', {
+				schema: {
+					radius: {type: 'number', default: 3.5}
+				},
+				init: function(){
+					this.audio = document.getElementById('recorderVoice');
+					this.isPlaying = false;
+					
+					this.onKey = (e) => {
+						if (e.key === 'e' || e.key === 'E') {
+							e.preventDefault();
+							this.tryInteract();
+						}
+					};
+					window.addEventListener('keydown', this.onKey);
+				},
+				remove: function(){
+					window.removeEventListener('keydown', this.onKey);
+					if (this.audio) {
+						this.audio.pause();
+						this.audio.currentTime = 0;
+					}
+				},
+				tryInteract: function(){
+					const cam = document.getElementById('cam');
+					if (!cam || !this.audio) return;
+					
+					// Проверка дистанции
+					const recPos = this.el.object3D.getWorldPosition(new THREE.Vector3());
+					const camPos = cam.object3D.getWorldPosition(new THREE.Vector3());
+					const dx = recPos.x - camPos.x;
+					const dz = recPos.z - camPos.z;
+					const dist = Math.sqrt(dx*dx + dz*dz);
+					
+					if (dist > this.data.radius) return;
+					
+					// Переключение воспроизведения
+					if (this.isPlaying) {
+						// Остановить
+						this.audio.pause();
+						this.audio.currentTime = 0;
+						this.isPlaying = false;
+						console.log('Диктофон остановлен');
+					} else {
+						// Воспроизвести
+						this.audio.currentTime = 0;
+						this.audio.play().catch(err => console.error('Ошибка воспроизведения:', err));
+						this.isPlaying = true;
+						console.log('Диктофон включен');
+						
+						// Автоматически сбросить флаг после окончания
+						this.audio.onended = () => {
+							this.isPlaying = false;
+							console.log('Запись закончилась');
+						};
+					}
+				}
+			});
+
 		})();
 	</script>
 </body>

@@ -1,0 +1,160 @@
+<html>
+  <head>
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+    <!-- Подключаем физику -->
+    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-physics-system@4.0.1/dist/aframe-physics-system.min.js"></script>
+  </head>
+  <body>
+    <a-scene physics="gravity: 0" background="#010" fog="type: exponential; color: #000; density: 0.05">
+      <a-assets>
+        <!-- Колодец -->
+        <a-asset-item id="wellModel" src="the_village_well1.glb"></a-asset-item>
+        <!-- Картинка скримера -->
+        <img id="ghostImage" src="ghost.jpg" />
+        <!-- Звук скримера -->
+        <audio id="scream" src="scream.mp3"></audio>
+      </a-assets>
+
+      <!-- Визуальная модель колодца -->
+      <a-entity
+        id="well"
+        gltf-model="#wellModel"
+        position="0 0 -3"
+        scale="5 5 5"
+        rotation="0 180 0"
+      ></a-entity>
+
+      <!-- Invisible коллайдер для колодца -->
+      <a-box position="0 1.25 -3" width="2.5" height="2.5" depth="2.5" visible="false" static-body></a-box>
+
+      <!-- Фонарик -->
+      <a-entity id="flashlight" position="0 1.6 0">
+        <a-entity
+          id="light-source"
+          light="type: spot; color: #fff7cc; intensity: 1.5; distance: 10; angle: 30; penumbra: 0.5"
+          position="0 0 0"
+        ></a-entity>
+      </a-entity>
+
+      <!-- Камера с физическим телом -->
+      <a-entity id="cameraRig" position="0 1.6 0" dynamic-body="shape: capsule; mass: 1">
+        <a-camera wasd-controls-enabled="true" look-controls="true"></a-camera>
+      </a-entity>
+
+      <!-- Скример -->
+      <a-plane
+        id="ghost"
+        src="#ghostImage"
+        width="1.5"
+        height="1.5"
+        position="0 -2 -3"
+        visible="false"
+        material="transparent: true; opacity: 1"
+      ></a-plane>
+
+      <!-- Освещение -->
+      <a-entity light="type: ambient; color: #888"></a-entity>
+      <a-entity light="type: directional; color: #fff; intensity: 0.5" position="1 2 1"></a-entity>
+
+<script>
+AFRAME.registerComponent("well-scare-trigger", {
+  schema: { distance: { type: "number", default: 2.0 } },
+
+  init: function () {
+    this.camera = document.querySelector("#cameraRig a-camera");
+    this.well = document.querySelector("#well");
+    this.flashlight = document.querySelector("#light-source");
+    this.ghost = document.querySelector("#ghost");
+    this.sound = document.querySelector("#scream");
+    this.triggered = false;
+
+    // Колодец непрозрачный
+    this.well.addEventListener("model-loaded", (e) => {
+      const model = e.detail.model;
+      if (!model) return;
+      model.traverse((node) => {
+        if (node.isMesh) {
+          node.material.transparent = false;
+          node.material.opacity = 1;
+        }
+      });
+    });
+  },
+
+  tick: function () {
+    if (this.triggered) return;
+
+    const camPos = new THREE.Vector3();
+    const wellPos = new THREE.Vector3();
+    this.camera.object3D.getWorldPosition(camPos);
+    this.well.object3D.getWorldPosition(wellPos);
+
+    const dx = camPos.x - wellPos.x;
+    const dz = camPos.z - wellPos.z;
+    const distanceXZ = Math.sqrt(dx*dx + dz*dz);
+
+    if (distanceXZ <= this.data.distance) {
+      this.triggered = true;
+      this.startScare();
+    }
+  },
+
+  startScare: function () {
+    const light = this.flashlight;
+    const ghost = this.ghost;
+    const scream = this.sound;
+    const camObj = this.camera.object3D;
+
+    // Вспышка света
+    light.setAttribute("light", "intensity", 8);
+    setTimeout(() => { light.setAttribute("light", "intensity", 1.5); }, 300);
+
+    // Скример перед камерой
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camObj.quaternion);
+    const ghostPos = camObj.position.clone().add(forward.multiplyScalar(1.5));
+    ghostPos.y += 2; // поднять скример выше по Y
+    ghost.object3D.position.copy(ghostPos);
+
+    // Повернуть плоскость лицом к камере
+    ghost.object3D.lookAt(camObj.position);
+    ghost.object3D.rotation.x = 0;
+    ghost.object3D.rotation.z = 0;
+
+    // Увеличиваем размер скримера
+    ghost.setAttribute("scale", "2 2 2"); // увеличили с 1 до 2
+
+    ghost.setAttribute("visible", true);
+
+    // Проигрываем звук
+    scream.play();
+
+    // Скрываем скример через 2 секунды
+    setTimeout(() => { ghost.setAttribute("visible", false); }, 2000);
+
+    // Лёгкая тряска камеры
+    this.shakeCamera();
+  },
+
+  shakeCamera: function () {
+    const camRig = document.querySelector("#cameraRig");
+    let t = 0;
+    const interval = setInterval(() => {
+      t += 0.1;
+      camRig.object3D.position.x += Math.sin(t * 40) * 0.05;
+      camRig.object3D.position.y = 1.6 + Math.cos(t * 50) * 0.05;
+      if (t > 1.5) {
+        clearInterval(interval);
+        camRig.object3D.position.y = 1.6;
+      }
+    }, 16);
+  }
+});
+
+document.querySelector("a-scene").setAttribute("well-scare-trigger", "distance: 2");
+</script>
+
+
+
+    </a-scene>
+  </body>
+</html>

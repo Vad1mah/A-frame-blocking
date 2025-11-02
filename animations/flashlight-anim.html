@@ -1,0 +1,118 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Flashlight (Smooth Light)</title>
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+  </head>
+  <body>
+    <a-scene background="color: #111">
+      <a-assets>
+        <a-asset-item id="flashlightModel" src="flashlight.glb"></a-asset-item>
+      </a-assets>
+
+      <!-- Освещение окружения -->
+      <a-entity light="type: ambient; intensity: 0.2"></a-entity>
+
+      <!-- Камера с управлением -->
+      <a-entity id="player" position="0 1.6 3" movement-controls>
+        <a-entity camera look-controls wasd-controls>
+          <a-entity
+            id="flashlight"
+            gltf-model="#flashlightModel"
+            position="0 -0.1 -0.3"
+            rotation="10 0 0"
+            scale="1 1 1"
+            flashlight
+          ></a-entity>
+        </a-entity>
+      </a-entity>
+
+      <a-box position="-1 0.5 -3" rotation="0 45 0" color="#4CC3D9"></a-box>
+      <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E"></a-sphere>
+      <a-cylinder position="1 0.75 -3" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
+      <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#7BC8A4"></a-plane>
+      <a-sky color="#222"></a-sky>
+
+      <script>
+        AFRAME.registerComponent("flashlight", {
+          init: function () {
+            this.isOn = false;
+            this.light = null;
+            this.bulbMesh = null;
+            this.intensity = 0;
+            const el = this.el;
+
+            // создаём источник света (spot)
+            const light = document.createElement("a-entity");
+            light.setAttribute("light", {
+              type: "spot",
+              color: "#ffffff",
+              intensity: 0,
+              angle: 25,
+              distance: 15,
+              decay: 2,
+              penumbra: 0.4,
+            });
+            light.setAttribute("position", "0 0 0.3");
+            el.appendChild(light);
+            this.light = light;
+
+            el.addEventListener("model-loaded", () => {
+              const model = el.getObject3D("mesh");
+              if (!model) return;
+              model.traverse((node) => {
+                if (node.isMesh && node.name.includes("flashlight__0")) {
+                  this.bulbMesh = node;
+                  node.material = node.material.clone();
+                  node.material.emissive = new THREE.Color(0x000000);
+                  node.material.emissiveIntensity = 0;
+                }
+              });
+            });
+
+            // Клавиша E — включение/выключение
+            window.addEventListener("keydown", (e) => {
+              const key = e.key.toLowerCase();
+              if (key === "e" || key === "у") {
+                this.toggleLight();
+              }
+            });
+          },
+
+          toggleLight: function () {
+            this.isOn = !this.isOn;
+            const target = this.isOn ? 4 : 0;
+            const step = this.isOn ? 0.1 : -0.1;
+            const bulb = this.bulbMesh;
+            const light = this.light;
+
+            // плавный переход
+            const fade = () => {
+              this.intensity = THREE.MathUtils.clamp(
+                this.intensity + step,
+                0,
+                4
+              );
+              light.setAttribute("light", "intensity", this.intensity);
+              if (bulb) {
+                bulb.material.emissive = new THREE.Color(0xffffcc);
+                bulb.material.emissiveIntensity = this.intensity / 2;
+                bulb.material.needsUpdate = true;
+              }
+              if (
+                (this.isOn && this.intensity < target) ||
+                (!this.isOn && this.intensity > 0)
+              ) {
+                requestAnimationFrame(fade);
+              }
+            };
+            fade();
+          },
+        });
+      </script>
+    </a-scene>
+  </body>
+</html>
+
+
+

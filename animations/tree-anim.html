@@ -1,0 +1,78 @@
+<html>
+  <head>
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+  </head>
+  <body>
+    <a-scene background="color: #000">
+      <a-assets>
+        <a-asset-item id="treeModel" src="main_tree.glb"></a-asset-item>
+      </a-assets>
+
+      <!-- дерево -->
+      <a-entity id="tree" gltf-model="#treeModel" position="0 0 -5"></a-entity>
+
+      <script>
+        AFRAME.registerComponent("rune-glow", {
+          init: function () {
+            this.time = 0;
+            this.targetNodes = [];
+
+            this.el.addEventListener("model-loaded", () => {
+              const model = this.el.getObject3D("mesh");
+              if (!model) return;
+
+              // Имена рун
+              const runeNames = ["Object_8002", "Object_28001", "Object_46001", "Object_50001"];
+
+              model.traverse((node) => {
+                if (node.isMesh && runeNames.includes(node.name)) {
+                  console.log("Руна найдена:", node.name);
+
+                  node.material = node.material.clone();
+                  node.material.emissive = new THREE.Color(0x00ffff); // голубой
+                  node.material.emissiveIntensity = 2.5; // 🔥 сильнее светится
+                  node.material.roughness = 0.2;
+                  node.material.metalness = 0.1;
+
+                  this.targetNodes.push(node);
+                }
+              });
+            });
+          },
+
+          tick: function (time, deltaTime) {
+            if (!this.targetNodes.length) return;
+            this.time += deltaTime / 1000;
+
+            // 🔹 создаем плавный переход голубой ↔ белый
+            const t = (Math.sin(this.time * 2.0) + 1) / 2; // 0 → 1 → 0
+            const color = new THREE.Color(0x00ffff).lerp(new THREE.Color(0xffffff), t);
+            const brightness = 2.0 + Math.sin(this.time * 2.0) * 1.0; // дыхание яркости
+
+            this.targetNodes.forEach((node) => {
+              node.material.emissive.copy(color);
+              node.material.emissiveIntensity = brightness;
+              node.material.needsUpdate = true;
+            });
+          }
+        });
+
+        // применяем компонент к дереву
+        document.querySelector("#tree").setAttribute("rune-glow", "");
+
+        // выводим все меши в консоль
+        document.querySelector('#tree').addEventListener('model-loaded', (e) => {
+          const model = e.detail.model;
+          console.log('Модель загружена! Все меши:');
+          model.traverse((node) => {
+            if (node.isMesh) {
+              console.log('Mesh name:', node.name);
+            }
+          });
+        });
+      </script>
+    </a-scene>
+  </body>
+</html>
+
+
